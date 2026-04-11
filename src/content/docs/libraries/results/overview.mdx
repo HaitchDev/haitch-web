@@ -1,0 +1,77 @@
+---
+title: Overview
+description: What Haitch.Results is and how to install it.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Haitch.Results provides `Result`, `Result<T>`, and `Result<T, TError>` types for representing operation outcomes without exceptions. It includes a structured `Error` model with categorised error types.
+
+Targets .NET 10+.
+
+## Installation
+
+<Tabs>
+  <TabItem label=".NET CLI">
+    ```sh
+    dotnet add package Haitch.Results
+    ```
+  </TabItem>
+  <TabItem label="Package Reference">
+    ```xml
+    <PackageReference Include="Haitch.Results" Version="*" />
+    ```
+  </TabItem>
+</Tabs>
+
+## Quick example
+
+```csharp
+using Haitch.Results;
+
+Result<int> Parse(string input)
+{
+    if (int.TryParse(input, out var value))
+        return value; // implicit conversion to success
+
+    return Error.Validation("parse.failed", $"'{input}' is not a valid integer.");
+}
+
+var result = Parse("42");
+
+var message = result.Match(
+    onSuccess: v => $"Parsed: {v}",
+    onFailure: e => $"Error: {e.Message}"
+);
+```
+
+## Core concepts
+
+**Result types** represent success or failure:
+
+| Type | Description |
+|---|---|
+| `Result` | No value on success. Carries an `Error` on failure. |
+| `Result<T>` | Carries a `T` on success, an `Error` on failure. |
+| `Result<T, TError>` | Carries a `T` on success, a custom `TError` on failure. |
+
+**Error** is a record with a machine-readable `Code`, a human-readable `Message`, an `ErrorType` category, and optional `Metadata`.
+
+**ErrorType** categorises errors: `Failure`, `Validation`, `NotFound`, `Conflict`, `Unauthorized`, `Forbidden`, `Unexpected`.
+
+## Implicit conversions
+
+All generic result types support implicit conversion from both success values and errors, so you can return values or errors directly without calling factory methods.
+
+```csharp
+Result<User> GetUser(int id)
+{
+    var user = db.Find(id);
+    if (user is null)
+        return Error.NotFound("user.not_found", $"No user with id {id}.");
+
+    return user; // implicit Success
+}
+```

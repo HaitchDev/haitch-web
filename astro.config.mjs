@@ -4,21 +4,21 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
+	redirects: {
+		'/libraries/results': '/libraries/results/overview/',
+	},
 	integrations: [
 		starlight({
 			title: 'Haitch',
+			logo: {
+				src: './src/assets/haitch-logo.svg',
+			},
+			customCss: ['./src/styles/custom.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/HaitchDev' }],
 			sidebar: [
 				{
-					label: 'Guides',
-					items: [
-						// Each item here is one entry in the navigation menu.
-						{ label: 'Example Guide', slug: 'guides/example' },
-					],
-				},
-				{
-					label: 'Reference',
-					autogenerate: { directory: 'reference' },
+					label: 'Haitch.Results',
+					autogenerate: { directory: 'libraries/results' },
 				},
 			],
 		}),
