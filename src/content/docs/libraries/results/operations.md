@@ -78,3 +78,15 @@ Result<OrderConfirmation> result = ParseOrderRequest(raw)
     .Map(receipt => new OrderConfirmation(receipt.Id))
     .TapError(e => logger.LogWarning("Order failed: {Code}", e.Code));
 ```
+
+## Async
+
+Each of the methods above also have async variants.
+
+For example:
+
+```csharp
+Result<Task<Order>> result = GetUserIdAsync(request)
+    .BindAsync(async id => await FindUserAsync(id))
+    .BindAsync(async user => await CreateOrderAsync(user));
+```
