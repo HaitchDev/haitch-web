@@ -43,6 +43,31 @@ Optional<string> Empty() => None.Default;
 | `TryGetValue(out T value)` | `bool` | Outputs the value and returns `true` when Some. |
 | `TryGetValue(out None none)` | `bool` | Outputs `None` and returns `true` when empty. |
 
+### Pattern matching
+
+`Optional<T>` is marked `[Union]` and implements `IUnion`, so C# pattern matching recognizes Some and None as its cases — a switch expression works alongside `Match`:
+
+```csharp
+string label = optional.Match(
+    onSome: value => $"Got {value}",
+    onNone: () => "none");
+
+string label2 = optional switch
+{
+    int value => $"Got {value}",
+    None => "none",
+};
+```
+
+A switch covering `T` and `None` is exhaustive for any `T`, reference or value type — no discard arm is needed, and the compiler warns (`CS8509`) if either is missing. A default `Optional<T>` (e.g. `default(Optional<T>)`) matches `None`.
+
+`is` patterns work too:
+
+```csharp
+if (optional is int value) { /* Some, holding value */ }
+if (optional is None) { /* None */ }
+```
+
 ---
 
 ## Optional static helpers

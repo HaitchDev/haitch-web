@@ -40,6 +40,31 @@ Result<int> Parse(string s) =>
 | `TryGetValue(out T value)` | `bool` | Outputs the value and returns `true` when Ok. |
 | `TryGetValue(out Error error)` | `bool` | Outputs the error and returns `true` when Error. |
 
+### Pattern matching
+
+`Result<T>` is marked `[Union]` and implements `IUnion`, so C# pattern matching recognizes Ok and Error as its cases — a switch expression works alongside `Match`:
+
+```csharp
+string label = result.Match(
+    onOk: value => $"Got {value}",
+    onError: error => $"Failed: {error.Description}");
+
+string label2 = result switch
+{
+    int value => $"Got {value}",
+    Error error => $"Failed: {error.Description}",
+};
+```
+
+A switch covering `T` and `Error` is exhaustive — no discard arm is needed, and the compiler warns (`CS8509`) if either is missing. A subtype arm, such as `NotFoundError`, can come before the general `Error` arm to handle it specially. A default `Result<T>` (e.g. `default(Result<T>)`) matches the `Error` arm, holding `Result.UninitializedError`.
+
+`is` patterns work too:
+
+```csharp
+if (result is int value) { /* Ok, holding value */ }
+if (result is Error error) { /* Error, holding error */ }
+```
+
 ### No value: Result&lt;Unit&gt;
 
 Haitch.Unions has no non-generic `Result` type. For an operation with nothing to return when Ok, use `Result<Unit>`:

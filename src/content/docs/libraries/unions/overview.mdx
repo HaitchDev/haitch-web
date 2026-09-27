@@ -56,6 +56,8 @@ var name = GetUser(42)
 
 **`Error`** is the base of a typed hierarchy — `NotFoundError`, `ValidationError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`, and `UnexpectedError` — instead of a single record with an enum tag.
 
+Both `Result<T>` and `Optional<T>` are C# unions (`[Union]`/`IUnion`), so `switch` expressions work alongside `Match` — see [Pattern matching](/libraries/unions/result/#pattern-matching).
+
 ## Implicit conversions
 
 Both `Result<T>` and `Optional<T>` support implicit conversion, so you can return values or errors directly without calling factory methods.
