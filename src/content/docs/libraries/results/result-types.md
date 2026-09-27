@@ -3,6 +3,8 @@ title: Result types
 description: API reference for Result, Result of T, and Result of T TError.
 sidebar:
   order: 3
+banner:
+  content: Haitch.Results is deprecated. Use <a href="/libraries/unions/overview/">Haitch.Unions</a> instead.
 ---
 
 ## Result (non-generic)

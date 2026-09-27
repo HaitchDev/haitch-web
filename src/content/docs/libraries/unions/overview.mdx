@@ -1,0 +1,74 @@
+---
+title: Overview
+description: What Haitch.Unions is and how to install it.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Haitch.Unions provides `Result<T>` and `Optional<T>` union types for representing operation outcomes and optional values without exceptions or `null` checks. It includes a typed `Error` hierarchy, fluent sync and async pipelines, ASP.NET Core integration, and TUnit assertions.
+
+Targets .NET 10+.
+
+## Installation
+
+<Tabs>
+  <TabItem label=".NET CLI">
+    ```sh
+    dotnet add package Haitch.Unions
+    dotnet add package Haitch.Unions.AspNetCore        # optional: Result -> HTTP results and ProblemDetails
+    dotnet add package Haitch.Unions.TUnit.Assertions  # optional: TUnit assertions
+    ```
+  </TabItem>
+  <TabItem label="Package Reference">
+    ```xml
+    <PackageReference Include="Haitch.Unions" Version="*" />
+    <PackageReference Include="Haitch.Unions.AspNetCore" Version="*" />
+    <PackageReference Include="Haitch.Unions.TUnit.Assertions" Version="*" />
+    ```
+  </TabItem>
+</Tabs>
+
+## Quick example
+
+```csharp
+using Haitch.Unions;
+
+Result<User> GetUser(int id) =>
+    repository.Find(id) is { } user
+        ? user
+        : new NotFoundError("User.NotFound", $"User {id} not found");
+
+var name = GetUser(42)
+    .Ensure(user => user.IsActive, new ValidationError("User.Inactive", "User is inactive"))
+    .Map(user => user.DisplayName)
+    .Match(
+        onOk: displayName => displayName,
+        onError: _ => "Anonymous");
+```
+
+## Core concepts
+
+**`Result<T>`** represents an operation that is either **Ok**, holding a `T`, or **Error**, holding an `Error`. There is no non-generic `Result` type — an operation with nothing to return uses `Result<Unit>`.
+
+**`Optional<T>`** represents a value that may or may not be present: **Some** holding a `T`, or **None**.
+
+**`Error`** is the base of a typed hierarchy — `NotFoundError`, `ValidationError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`, and `UnexpectedError` — instead of a single record with an enum tag.
+
+## Implicit conversions
+
+Both `Result<T>` and `Optional<T>` support implicit conversion, so you can return values or errors directly without calling factory methods.
+
+```csharp
+Result<User> GetUser(int id)
+{
+    var user = db.Find(id);
+    if (user is null)
+        return new NotFoundError("user.not_found", $"No user with id {id}.");
+
+    return user; // implicit Ok
+}
+
+Optional<string> GetNickname(User user) => user.Nickname; // null becomes None
+```

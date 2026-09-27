@@ -3,6 +3,8 @@ title: Error model
 description: The Error record and ErrorType enum.
 sidebar:
   order: 2
+banner:
+  content: Haitch.Results is deprecated. Use <a href="/libraries/unions/overview/">Haitch.Unions</a> instead.
 ---
 
 ## ErrorType

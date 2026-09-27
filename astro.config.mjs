@@ -6,6 +6,7 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
 	redirects: {
 		'/libraries/results': '/libraries/results/overview/',
+		'/libraries/unions': '/libraries/unions/overview/',
 	},
 	integrations: [
 		starlight({
@@ -17,7 +18,11 @@ export default defineConfig({
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/HaitchDev' }],
 			sidebar: [
 				{
-					label: 'Haitch.Results',
+					label: 'Haitch.Unions',
+					autogenerate: { directory: 'libraries/unions' },
+				},
+				{
+					label: 'Haitch.Results (deprecated)',
 					autogenerate: { directory: 'libraries/results' },
 				},
 			],

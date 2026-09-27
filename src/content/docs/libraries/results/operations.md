@@ -3,6 +3,8 @@ title: Operations
 description: Match, Map, Bind, Tap, and Ensure methods on Result types.
 sidebar:
   order: 4
+banner:
+  content: Haitch.Results is deprecated. Use <a href="/libraries/unions/overview/">Haitch.Unions</a> instead.
 ---
 
 All result types expose a consistent set of methods for composing operations. The signatures below use `Result<T>` — `Result` and `Result<T, TError>` follow the same pattern.
