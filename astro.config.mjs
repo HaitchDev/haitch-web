@@ -7,6 +7,7 @@ export default defineConfig({
 	redirects: {
 		'/libraries/results': '/libraries/results/overview/',
 		'/libraries/unions': '/libraries/unions/overview/',
+		'/libraries/roslyn': '/libraries/roslyn/overview/',
 	},
 	integrations: [
 		starlight({
@@ -20,6 +21,10 @@ export default defineConfig({
 				{
 					label: 'Haitch.Unions',
 					autogenerate: { directory: 'libraries/unions' },
+				},
+				{
+					label: 'Haitch.Roslyn',
+					autogenerate: { directory: 'libraries/roslyn' },
 				},
 				{
 					label: 'Haitch.Results (deprecated)',

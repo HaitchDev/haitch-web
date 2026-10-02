@@ -1,0 +1,60 @@
+---
+title: Overview
+description: What Haitch.Roslyn is, its requirements, and how to install it.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Haitch.Roslyn is a set of source-only utilities for Roslyn incremental source generators. The package ships `.cs` files that compile into your generator project as `internal` types, so nothing is added to your generator's runtime dependencies.
+
+It covers the parts of a generator that are easy to get subtly wrong: value-equal models so incremental caching works, a one-item-per-type attribute provider, cache-safe diagnostics, and indented source writing. A second, regular package, `Haitch.Roslyn.Testing`, provides test helpers.
+
+## Requirements
+
+- **C# 14 or later** (`<LangVersion>14</LangVersion>` or `latest`), because the Polyfill dependency uses C# 14 extension blocks.
+- **Your own reference to `Microsoft.CodeAnalysis.CSharp` 4.12.0 or later.** Generator projects already have one; the package deliberately does not pass Roslyn on as a dependency.
+- **Polyfill** arrives as a transitive dependency, so there is nothing to add for it.
+
+The package ships its source as `contentFiles`, which compile in `netstandard2.0` generator projects.
+
+## Installation
+
+<Tabs>
+  <TabItem label=".NET CLI">
+    ```sh
+    dotnet add package Haitch.Roslyn
+    dotnet add package Haitch.Roslyn.Testing   # in your test project
+    ```
+  </TabItem>
+  <TabItem label="Package Reference">
+    ```xml
+    <PropertyGroup>
+      <TargetFramework>netstandard2.0</TargetFramework>
+      <LangVersion>14</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="*" PrivateAssets="all" />
+    </ItemGroup>
+    ```
+  </TabItem>
+</Tabs>
+
+## What's inside
+
+| Namespace | Types | Page |
+|---|---|---|
+| `Haitch.Roslyn.Types` | `EquatableArray<T>` | [Models](/libraries/roslyn/models/) |
+| `Haitch.Roslyn.Models` | `TypeRef`, `AttributeModel`, `ConstantValue`, `TypeModel`, `ContainingTypeModel`, member models, `SyntaxInfo` | [Models](/libraries/roslyn/models/) |
+| `Haitch.Roslyn.Generators` | `ForTypesWithAttribute`, `AddMarkerAttribute`, `AddEmbeddedAttributeDefinition`, `HintName` | [Pipeline helpers](/libraries/roslyn/pipeline/) |
+| `Haitch.Roslyn.Diagnostics` | `LocationInfo`, `DiagnosticInfo`, `Result<T>`, `Result.Combine`/`Collect`, `ReportDiagnostics`, `PartialTypeValidation` | [Diagnostics](/libraries/roslyn/diagnostics/) |
+| `Haitch.Roslyn.Writing` | `SourceWriter` and the typed scoped writer | [Source writing](/libraries/roslyn/writing/) |
+| `Haitch.Roslyn.Testing` | `GeneratorHarness`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
+
+For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
+
+## Why source-only
+
+A generator's dependencies must be shipped and loaded inside the compiler host alongside the generator. Because the types here are compiled into your assembly as `internal`, there is no extra DLL to bundle, and no version clash when several generators in one build use different versions of the library.
