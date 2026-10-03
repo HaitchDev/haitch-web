@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn --version 0.4.0
-    dotnet add package Haitch.Roslyn.Testing --version 0.4.0   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.5.0
+    dotnet add package Haitch.Roslyn.Testing --version 0.5.0   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="0.4.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.5.0" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -55,9 +55,23 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
 
-## What's new in 0.4.0
+## What's new in 0.5.0
 
-The Roslyn 4.12 floor is unchanged, and the 0.3 `Run` and `AssertCacheable` overloads still compile. The release serves generator authors end to end: testing with realistic input, finding members, and reading options.
+The Roslyn 4.12 floor is unchanged. The release finishes the testing harness and adds a raw-line writer for type bodies. Three changes can break a test: the harness overloads that took `additionalReferences` and `parseOptions` are gone, `AssertCacheable` now fails a step that holds the options provider by reference, and `AdditionalTexts` now holds `AdditionalText`, so write `new HarnessAdditionalText(...)` rather than target-typed `new(...)`. `HarnessAdditionalText` is no longer a record, so it has no `with`, value equality or deconstruction.
+
+**Testing**
+
+- The harness entry points are exactly `Run(generator, GeneratorHarnessInput)`, `Run(generator, params string[] sources)`, `AssertCacheable(generator, GeneratorHarnessInput, steps, options)` and `AssertCacheable(generator, sources, params string[] trackedStepNames)`. Use `GeneratorHarnessInput` for references and parse options. See [Testing generators](/libraries/roslyn/testing/).
+- `GeneratorHarnessInput.AdditionalTexts` takes any `AdditionalText`. `UnreadableAdditionalText` tests files the compiler cannot read, and `HarnessAdditionalText` is now a sealed class. See [Additional texts](/libraries/roslyn/testing/#additional-texts).
+- Every `AssertCacheable` rerun uses a new options provider built from the same options, as the IDE does. See [AssertCacheable](/libraries/roslyn/testing/#assertcacheable).
+
+**Writing**
+
+- `TypeScope.Line` writes a raw line, such as a `#pragma`, at the type body's indent, and `Line` on every scope now defaults `text` to `""`. See [Raw lines](/libraries/roslyn/writing/#raw-lines).
+
+## What was new in 0.4.0
+
+The Roslyn 4.12 floor is unchanged, and the 0.3 `Run` and `AssertCacheable` overloads still compile (removed in 0.5.0). The release serves generator authors end to end: testing with realistic input, finding members, and reading options.
 
 **Testing**
 

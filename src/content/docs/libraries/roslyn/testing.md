@@ -10,7 +10,7 @@ sidebar:
 ## Installation
 
 ```sh
-dotnet add package Haitch.Roslyn.Testing --version 0.4.0
+dotnet add package Haitch.Roslyn.Testing --version 0.5.0
 ```
 
 ## GeneratorHarness.Run
@@ -24,7 +24,7 @@ var result = GeneratorHarness.Run(new MyGenerator(), ["[My] public partial class
 await Assert.That(result.Sources).ContainsKey("Foo.g.cs");
 ```
 
-Optional parameters: `additionalReferences` (extra `MetadataReference`s) and `parseOptions` (defaults to the latest language version).
+To add references, change the parse options or feed additional files, pass a [`GeneratorHarnessInput`](#generatorharnessinput) instead of the sources. `Run` has exactly these two overloads: `Run(generator, GeneratorHarnessInput)` and `Run(generator, params string[] sources)`.
 
 `Run` throws `GeneratorTestException` if the generator throws, or if the input or the generated output has compile errors. Errors are checked **after** generation, so inputs may use post-initialization types such as marker attributes.
 
@@ -40,7 +40,7 @@ Optional parameters: `additionalReferences` (extra `MetadataReference`s) and `pa
 
 ## GeneratorHarnessInput
 
-`Run` and `AssertCacheable` also take a `GeneratorHarnessInput`, which carries everything the harness feeds the generator. The overloads that take a `string` list delegate to it, so 0.3 callers compile unchanged.
+`Run` and `AssertCacheable` also take a `GeneratorHarnessInput`, which carries everything the harness feeds the generator. The `params string[]` overload of `Run` and the sources overload of `AssertCacheable` delegate to it.
 
 ```csharp
 var result = GeneratorHarness.Run(
@@ -48,7 +48,7 @@ var result = GeneratorHarness.Run(
     new GeneratorHarnessInput
     {
         Sources = ["class Input { }"],
-        AdditionalTexts = [new("docs/greeting.txt", "Hello")],
+        AdditionalTexts = [new HarnessAdditionalText("docs/greeting.txt", "Hello")],
         GlobalOptions = new Dictionary<string, string>
         {
             ["build_property.RootNamespace"] = "App",
@@ -68,12 +68,32 @@ var result = GeneratorHarness.Run(
 | `Sources` | Required. The C# source texts of the input compilation. |
 | `AdditionalReferences` | Extra `MetadataReference`s. The test host's platform references are always included. |
 | `ParseOptions` | Defaults to the latest language version. |
-| `AdditionalTexts` | `HarnessAdditionalText(Path, Text)` records handed to the generator as additional files. |
+| `AdditionalTexts` | An `IReadOnlyList<AdditionalText>?` handed to the generator as additional files; see [below](#additional-texts). |
 | `GlobalOptions` | Global analyzer-config options, such as `build_property.RootNamespace`. |
 | `PerFileOptions` | Analyzer-config options keyed by file path, such as `build_metadata.AdditionalFiles.ConstantName`. |
 | `AllowInputErrors` | Lets errors that exist before generation through; see [below](#input-errors). |
 
-Option keys are passed through verbatim, so write the full `build_property.` or `build_metadata.AdditionalFiles.` prefix. Lookups are case-insensitive, like the compiler's. A source tree's path in `PerFileOptions` is `Source{i}.cs` (zero-based, in `Sources` order); an additional text's path is its `HarnessAdditionalText.Path`.
+Option keys are passed through verbatim, so write the full `build_property.` or `build_metadata.AdditionalFiles.` prefix. Lookups are case-insensitive, like the compiler's. A source tree's path in `PerFileOptions` is `Source{i}.cs` (zero-based, in `Sources` order); an additional text's path is its `Path`.
+
+### Additional texts
+
+`AdditionalTexts` takes any `AdditionalText`. `HarnessAdditionalText(path, text)` is a sealed class (it was a record in 0.4) for the plain case. `UnreadableAdditionalText(path)` is an additional file whose `GetText` returns `null`, as the compiler's does for a file it cannot read, so you can test that path without driving `CSharpGeneratorDriver` yourself.
+
+```csharp
+var result = GeneratorHarness.Run(
+    new TextConstantsGenerator(),
+    new GeneratorHarnessInput
+    {
+        Sources = ["class Input { }"],
+        AdditionalTexts =
+        [
+            new HarnessAdditionalText("docs/greeting.txt", "Hello"),
+            new UnreadableAdditionalText("docs/missing.txt"),
+        ],
+    });
+```
+
+Per-file options match by path, and two texts with the same path share one entry. A `null` element throws `GeneratorTestException`.
 
 ### Input errors
 
@@ -140,6 +160,8 @@ Name the expected files so the compiler does not pick them up, for example with 
 
 `AssertCacheable` runs the generator, reruns it on a cloned compilation, then on one where the first source gained a trailing comment, and requires every output of the named steps to be `Cached` or `Unchanged`. It also fails if a step output holds a caching hazard. It returns the first run's `GeneratorHarnessResult`.
 
+Every rerun uses a new options provider built from the same options, as the IDE does. A step that holds the `AnalyzerConfigOptionsProvider` by reference therefore fails; read the values you need into an equatable model instead.
+
 Name the steps with `WithTrackingName` in the generator:
 
 ```csharp
@@ -152,7 +174,7 @@ var models = context.SyntaxProvider
 GeneratorHarness.AssertCacheable(new MyGenerator(), ["[My] public partial class Foo;"], "Models");
 ```
 
-Step names can be passed as `params string[]` or as an `IEnumerable<string>`, in which case the optional `additionalReferences` and `parseOptions` follow. To run against additional files or options, pass a `GeneratorHarnessInput` in place of the sources: `AssertCacheable(generator, input, steps, options)`, where `options` is an optional `CacheabilityOptions`.
+There are two overloads: `AssertCacheable(generator, IEnumerable<string> sources, params string[] trackedStepNames)` and `AssertCacheable(generator, GeneratorHarnessInput input, IEnumerable<string> steps, CacheabilityOptions? options = null)`. Use the second to run against references, parse options, additional files or analyzer options.
 
 ```csharp
 GeneratorHarness.AssertCacheable(new TextConstantsGenerator(), input, ["TextConstantsGenerator.Files"]);
@@ -162,12 +184,15 @@ GeneratorHarness.AssertCacheable(new TextConstantsGenerator(), input, ["TextCons
 
 ### CacheabilityOptions
 
-An overload takes a `CacheabilityOptions` after the step names, followed by the optional `additionalReferences` and `parseOptions`. Both options are off by default.
+The `GeneratorHarnessInput` overload takes an optional `CacheabilityOptions` after the step names. Both options are off by default.
 
 ```csharp
 GeneratorHarness.AssertCacheable(
     new MyGenerator(),
-    ["[My] public partial class Foo;", "public class Other;"],
+    new GeneratorHarnessInput
+    {
+        Sources = ["[My] public partial class Foo;", "public class Other;"],
+    },
     ["Models"],
     new CacheabilityOptions
     {
@@ -184,7 +209,6 @@ Caveats:
 - **Name model steps only.** Steps that combine with `CompilationProvider` or output syntax nodes are legitimately `Modified` by the trivia edit.
 - **The edit targets the first source**, so put the code your tracked steps read there.
 - **An unknown or never-run step name fails**; the message lists the steps that exist.
-- **Passing `null` positionally as the fourth argument is ambiguous** between the overloads; use named arguments.
 
 ## CachingHazardWalker
 

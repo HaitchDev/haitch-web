@@ -60,13 +60,14 @@ writer.File()
 
 TypeScope
   ├─ Type(TypeModel)                         nested partial type
+  ├─ Line(string text = "")                  raw line at the body indent
   ├─ Method(MethodModel)  ─▶ BodyScope
   ├─ Field(FieldModel, string? initializer = null)
   ├─ AutoProperty(PropertyModel)
   └─ Property(PropertyModel) ─▶ PropertyScope ─▶ Get() / Set() / Init() ─▶ BodyScope
 
 BodyScope
-  ├─ Line(string)
+  ├─ Line(string text = "")
   ├─ Block(string header) ─▶ BodyScope
   └─ statement scopes (If, ForEach, Try, Switch, ...)
 ```
@@ -117,6 +118,18 @@ using var type = ns.Type(typeModel, baseTypes: [notifyInterface]);
 The list is not validated. Another part of the type may already declare a base class or the interface, and the compiler reports that. Check `TypeModel.BaseType` and `AllInterfaces` first when it matters, and write only the interfaces the type does not already implement.
 
 `TypeScope.Event(EventModel)` writes one field-like event line, such as `public event global::System.EventHandler? Changed;`, with `static`, `abstract`, `virtual`, `override` and `sealed` as the model says. It throws `ArgumentException` for an event with written-out accessors (`IsFieldLike` is false) and for an explicit interface implementation.
+
+#### Raw lines
+
+`TypeScope.Line(string text = "")` writes the text as one or more raw lines at the type body's indent (embedded newlines are split) and returns the scope. It is for text that no model covers, such as a `#pragma`. It behaves like `SourceWriter.WriteLine` at that point: a buffered attribute stays pending and is written above the next member, after the line.
+
+```csharp
+scope.Line("#pragma warning disable CS0067");
+scope.Event(changedEvent);
+scope.Line("#pragma warning restore CS0067");
+```
+
+`BodyScope`, `IfScope` and `TryScope` `Line` also default `text` to `""`, so `Line()` writes a blank line.
 
 ### Methods
 
