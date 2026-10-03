@@ -112,6 +112,20 @@ Result<TypeModel> result = PartialTypeValidation.Validate(type, syntax, Diagnost
 
 Each descriptor receives the type name as message argument `{0}`. `PartialTypeDiagnostics` is generator configuration: hold it in a `static readonly` field, never as a pipeline value.
 
+### Validating members
+
+A member found by `ForMethodsWithAttribute` and its siblings has no `TypeModel` to validate, and its own `partial` modifier is often irrelevant. `PartialTypeValidation.ValidateContainingTypes` checks only that every containing type is partial, and passes any value through on success.
+
+```csharp
+Result<MethodModel> result = PartialTypeValidation.ValidateContainingTypes(
+    item.Method,
+    item.Syntax,
+    ContainingTypeNotPartial,
+    item.Method.Name);
+```
+
+The descriptor is reported at `syntax.Location` with the last argument as message argument `{0}`. `T` must implement `IEquatable<T>`, which every model does.
+
 Add your own rules by binding on the validated result. For example, rejecting static types:
 
 ```csharp

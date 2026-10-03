@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn --version 0.3.0
-    dotnet add package Haitch.Roslyn.Testing --version 0.3.0   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.4.0
+    dotnet add package Haitch.Roslyn.Testing --version 0.4.0   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="0.3.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.4.0" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -47,15 +47,41 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 | Namespace | Types | Page |
 |---|---|---|
 | `Haitch.Roslyn.Types` | `EquatableArray<T>` | [Models](/libraries/roslyn/models/) |
-| `Haitch.Roslyn.Models` | `TypeRef`, `AttributeModel`, `WellKnownAttributes`, `ConstantValue`, `TypeModel`, `NewTypeModel`, `ContainingTypeModel`, member models, `SyntaxInfo` | [Models](/libraries/roslyn/models/) |
-| `Haitch.Roslyn.Generators` | `ForTypesWithAttribute`, `AddMarkerAttribute`, `AddEmbeddedAttributeDefinition`, `HintName` | [Pipeline helpers](/libraries/roslyn/pipeline/) |
+| `Haitch.Roslyn.Models` | `TypeRef`, `AttributeModel`, `WellKnownAttributes`, `ConstantValue`, `TypeModel`, `NewTypeModel`, `ContainingTypeModel`, member models (including `EventModel`), `SyntaxInfo`, `BuildProperties`, `AdditionalFileModel` | [Models](/libraries/roslyn/models/) |
+| `Haitch.Roslyn.Generators` | `ForTypesWithAttribute`, `ForMethodsWithAttribute`, `ForPropertiesWithAttribute`, `ForFieldsWithAttribute`, `ForBuildProperty`, `ForBuildProperties`, `ForAdditionalFiles`, `AddMarkerAttribute`, `AddEmbeddedAttributeDefinition`, `HintName` | [Pipeline helpers](/libraries/roslyn/pipeline/) |
 | `Haitch.Roslyn.Diagnostics` | `LocationInfo`, `DiagnosticInfo`, `Result<T>`, `Result.Combine`/`Collect`, `ReportDiagnostics`, `PartialTypeValidation` | [Diagnostics](/libraries/roslyn/diagnostics/) |
 | `Haitch.Roslyn.Writing` | `SourceWriter`, the typed scoped writer, attribute and new-type rendering, statement scopes | [Source writing](/libraries/roslyn/writing/), [Attributes, new types and statements](/libraries/roslyn/generating-code/) |
-| `Haitch.Roslyn.Testing` | `GeneratorHarness`, `CacheabilityOptions`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
+| `Haitch.Roslyn.Testing` | `GeneratorHarness`, `GeneratorHarnessInput`, `GeneratorHarnessResult` and its assertions, `CacheabilityOptions`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
 
-## What's new in 0.3.0
+## What's new in 0.4.0
+
+The Roslyn 4.12 floor is unchanged, and the 0.3 `Run` and `AssertCacheable` overloads still compile. The release serves generator authors end to end: testing with realistic input, finding members, and reading options.
+
+**Testing**
+
+- `GeneratorHarnessInput` feeds additional files, global and per-file analyzer options, and an `AllowInputErrors` switch to the harness.
+- Diagnostic assertions (`AssertNoDiagnostics`, `AssertDiagnostic`) and expected-output assertions (`AssertSource`, `AssertSourceFile`, with `HAITCH_ACCEPT=1`). See [Testing generators](/libraries/roslyn/testing/).
+
+**Pipeline**
+
+- `ForMethodsWithAttribute`, `ForPropertiesWithAttribute` and `ForFieldsWithAttribute`, and an optional syntax predicate on all four `For...WithAttribute` methods. See [Member discovery](/libraries/roslyn/pipeline/#member-discovery).
+- `ForBuildProperty`, `ForBuildProperties` and `ForAdditionalFiles`, which return equatable models. See [Build properties](/libraries/roslyn/pipeline/#build-properties) and [Additional files](/libraries/roslyn/pipeline/#additional-files).
+
+**Models and writing**
+
+- Typed `ConstantValue` accessors, `AttributeModel.TryGetNamedArgument`, `TryGetConstructorArgument` and `MetadataName`, and `EquatableArray<AttributeModel>.Find`. See [Reading attribute arguments](/libraries/roslyn/models/#reading-attribute-arguments).
+- `TypeModel.BaseType`, `Interfaces`, `AllInterfaces` and `Events`, and `EventModel`. See [Base types, interfaces and events](/libraries/roslyn/models/#base-types-interfaces-and-events).
+- `TypeScope.Event`, and a base-list parameter on the `Type(...)` writers. See [Events and base lists](/libraries/roslyn/writing/#events-and-base-lists).
+- `PartialTypeValidation.ValidateContainingTypes`, for members. See [Validating members](/libraries/roslyn/diagnostics/#validating-members).
+
+**Smaller changes**
+
+- `EquatableArray<T>` now constrains `T : IEquatable<T>?`, so `EquatableArray<string?>` works.
+- The method renderer writes `abstract override` for an abstract override.
+
+## What was new in 0.3.0
 
 The package is built against the C# 15 release candidate; the Roslyn 4.12 floor is unchanged. Behaviour changes from 0.2.0 come first.
 

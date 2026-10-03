@@ -105,9 +105,22 @@ A blank line is inserted automatically between sibling members, types, usings an
 
 `TypeScope.Type` writes a nested partial declaration of that type alone. Its `ContainingTypes` must be empty or end with the type of the scope it is called on. File-local types throw `ArgumentException`.
 
+#### Events and base lists
+
+`FileScope.Type`, `NamespaceScope.Type` and `TypeScope.Type` take an optional `EquatableArray<TypeRef> baseTypes`. Those types are written as a base list on the innermost declaration only, never on its containing types.
+
+```csharp
+using var type = ns.Type(typeModel, baseTypes: [notifyInterface]);
+// public partial class Person : global::System.ComponentModel.INotifyPropertyChanged
+```
+
+The list is not validated. Another part of the type may already declare a base class or the interface, and the compiler reports that. Check `TypeModel.BaseType` and `AllInterfaces` first when it matters, and write only the interfaces the type does not already implement.
+
+`TypeScope.Event(EventModel)` writes one field-like event line, such as `public event global::System.EventHandler? Changed;`, with `static`, `abstract`, `virtual`, `override` and `sealed` as the model says. It throws `ArgumentException` for an event with written-out accessors (`IsFieldLike` is false) and for an explicit interface implementation.
+
 ### Methods
 
-`Method` writes the signature and opens a braced body. Abstract and extern methods (including interface members) have no body and throw; use `WriteMethodSignature` for them.
+`Method` writes the signature and opens a braced body. Abstract and extern methods (including interface members) have no body and throw; use `WriteMethodSignature` for them, which writes `abstract override` for an abstract override.
 
 ### Fields and properties
 

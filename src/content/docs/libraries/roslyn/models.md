@@ -9,7 +9,7 @@ An incremental generator only skips work when a pipeline step's output compares 
 
 ## EquatableArray&lt;T&gt;
 
-`EquatableArray<T>` is a value-equal array wrapper used for every collection inside a model. `T` must implement `IEquatable<T>`.
+`EquatableArray<T>` is a value-equal array wrapper used for every collection inside a model. `T` must implement `IEquatable<T>?`, so nullable reference types are allowed and `EquatableArray<string?>` works.
 
 ```csharp
 using Haitch.Roslyn.Types;
@@ -41,14 +41,16 @@ An empty collection expression yields `default`.
 | Model | Captures |
 |---|---|
 | `TypeRef` | A type reference: fully qualified name, nullable annotation, special type, type kind, value-type flag. `TypeRef.From(ITypeSymbol)`. |
-| `AttributeModel` | An attribute's type, constructor arguments and named arguments. `AttributeModel.From(AttributeData)` returns `null` for an unresolved attribute. |
-| `ConstantValue` | A constant: null, primitive, string, enum, type or array. Built with `ForNull`, `ForPrimitive`, `ForString`, `ForEnum`, `ForType`, `ForArray`. |
+| `AttributeModel` | An attribute's type, metadata name, constructor arguments and named arguments. `AttributeModel.From(AttributeData)` returns `null` for an unresolved attribute. See [Reading attribute arguments](#reading-attribute-arguments). |
+| `ConstantValue` | A constant: null, primitive, string, enum, type or array. Built with `ForNull`, `ForPrimitive`, `ForString`, `ForEnum`, `ForType`, `ForArray`, and read with typed `TryGet...` accessors. |
 | `WellKnownAttributes` | Ready-made `AttributeModel`s: `GeneratedCode(tool, version)` and `EditorBrowsableNever`. See [Attributes, new types and statements](/libraries/roslyn/generating-code/). |
 | `TypeModel` | A class, record, struct, record struct, interface or C# 15 union declaration. |
 | `NewTypeModel` | A brand-new, non-partial type to emit, as opposed to an existing one to extend. See [Attributes, new types and statements](/libraries/roslyn/generating-code/). |
 | `ContainingTypeModel` | One enclosing type of a nested type. |
-| `MethodModel`, `PropertyModel`, `FieldModel`, `ParameterModel`, `TypeParameterModel` | Members and their parts. Each has a `From(...)` factory over the matching symbol. |
+| `MethodModel`, `PropertyModel`, `FieldModel`, `EventModel`, `ParameterModel`, `TypeParameterModel` | Members and their parts. Each has a `From(...)` factory over the matching symbol. |
 | `SyntaxInfo` | Syntax facts: `IsPartial`, `AreContainingTypesPartial` and a `LocationInfo?`. `SyntaxInfo.From(TypeDeclarationSyntax)`. |
+| `BuildProperties` | A set of MSBuild properties read together. See [Build properties](/libraries/roslyn/pipeline/#build-properties). |
+| `AdditionalFileModel` | An additional file's path, text and requested metadata. See [Additional files](/libraries/roslyn/pipeline/#additional-files). |
 
 ## TypeModel
 
@@ -57,7 +59,7 @@ TypeModel model = TypeModel.From(typeSymbol);
 TypeModel withMembers = TypeModel.From(typeSymbol, includeMembers: true);
 ```
 
-`TypeModel` records the namespace (`null` for the global namespace), name, `Kind` (`TypeDeclarationKind`), accessibility, modifier flags (`IsStatic`, `IsAbstract`, `IsSealed`, `IsReadOnly`, `IsRefLikeType`, `IsFileLocal`), type parameters, containing types (outermost first), attributes, and the `Fields`, `Properties` and `Methods` arrays.
+`TypeModel` records the namespace (`null` for the global namespace), name, `Kind` (`TypeDeclarationKind`), accessibility, modifier flags (`IsStatic`, `IsAbstract`, `IsSealed`, `IsReadOnly`, `IsRefLikeType`, `IsFileLocal`), type parameters, containing types (outermost first), attributes, base types (see [below](#base-types-interfaces-and-events)), and the `Fields`, `Properties`, `Methods` and `Events` arrays.
 
 **Members are captured only when `includeMembers: true`.** A model with members changes whenever any member is edited, so the member arrays are empty by default. Ask for members only when the generator really reads them.
 
@@ -68,6 +70,25 @@ Both `TypeModel.From` and `MethodModel.From` take an optional trailing `Cancella
 ```csharp
 TypeModel model = TypeModel.From(typeSymbol, includeMembers: true, cancellationToken);
 ```
+
+### Base types, interfaces and events
+
+`BaseType`, `Interfaces` and `AllInterfaces` are always populated, whether or not `includeMembers` is set.
+
+- **`BaseType`** is a `TypeRef?`: the base class, or `null` when the type has none beyond `object` or `System.ValueType`, and for interfaces. An implicit base is never recorded, so `null` means "no user-written base class".
+- **`Interfaces`** lists the interfaces the type declares directly, in Roslyn's order.
+- **`AllInterfaces`** lists every interface the type implements, including those inherited from its base class and base interfaces.
+
+```csharp
+if (!type.AllInterfaces.Any(i => i.FullyQualifiedName == "global::System.IDisposable"))
+{
+    // the generated partial declaration can add the interface itself
+}
+```
+
+**Caching.** `AllInterfaces` feeds on the base types' own interface lists. Adding or removing an interface on a base type changes it, and so changes the model and invalidates caches built on it. That is correct (the answer to "does this type implement X" changed), but it means a model with `AllInterfaces` is not cached against edits to its base types.
+
+`TypeModel.Events` holds `EventModel`s when `includeMembers` is `true`. An `EventModel` records `Name`, `Type`, `Accessibility`, `IsStatic` and `IsFieldLike`, plus `IsAbstract`, `IsVirtual`, `IsOverride`, `IsSealed`, `ExplicitInterface`, `ExplicitInterfaceMemberName` and `Attributes`. `IsFieldLike` is true for `event EventHandler E;` and false when the accessors are written out. For an event from metadata it is always false, because the two forms cannot be told apart there. `Name` is not unique when explicit implementations are present, so match on `ExplicitInterface` as well.
 
 ### Unions and closed types
 
@@ -83,6 +104,48 @@ A type is a union (`Kind == TypeDeclarationKind.Union`) when a declaring syntax 
 - **Explicit interface implementations** are included in `Methods` and `Properties` when `includeMembers` is `true`. `Name` is the unqualified member name, and `ExplicitInterface` (a `TypeRef?`) and `ExplicitInterfaceMemberName` identify the interface member; both are `null` for an ordinary member. Because of that, `Name` is not unique: it can repeat across overloads, and an explicit implementation can share a name with a member of the type. Match on `ExplicitInterface` as well as `Name`. This also changes `MethodModel.From`: it used to return the qualified Roslyn name such as `System.IDisposable.Dispose`.
 
 Two flags are worth knowing when you render a partial declaration: interfaces always report `IsAbstract` and structs always report `IsSealed`, even though neither keyword is ever written. The [typed writer](/libraries/roslyn/writing/) already accounts for this.
+
+## Reading attribute arguments
+
+An `AttributeModel` holds its arguments as `ConstantValue`s. Reading one without a cast goes through the typed accessors, which return `false` on a mismatch and never throw.
+
+```csharp
+AttributeModel? notify = item.Attributes.Find("Notify.NotifyAttribute");
+
+if (notify is not null
+    && notify.TryGetNamedArgument("Name", out var nameArgument)
+    && nameArgument.TryGetString(out var name))
+{
+    // [Notify(Name = "Title")]
+}
+
+var raise = notify is not null
+    && notify.TryGetNamedArgument("Raise", out var raiseArgument)
+    && raiseArgument.TryGetBoolean(out var value)
+    ? value
+    : true;
+```
+
+**On `AttributeModel`:**
+
+- `TryGetNamedArgument(string name, out ConstantValue value)` matches the name exactly, case-sensitively.
+- `TryGetConstructorArgument(int index, out ConstantValue value)` reads by position. A `params` argument is one array value. An out-of-range index returns `false`.
+- `MetadataName` is the attribute class's metadata name in the form `ForAttributeWithMetadataName` takes (`Ns.Outer+Inner`, ``Ns.Foo`1``). It is `null` on a hand-built model.
+- `Find(fullyQualifiedMetadataName)` is an extension on `EquatableArray<AttributeModel>`. It returns the first attribute whose `MetadataName` equals the argument ordinally, or `null`. A hand-built model with a `null` `MetadataName` never matches.
+
+**On `ConstantValue`:**
+
+| Member | Succeeds when |
+|---|---|
+| `IsNull` | The constant is a null. |
+| `TryGetString(out string)` | It is a string. |
+| `TryGetBoolean`, `TryGetInt32`, `TryGetInt64`, `TryGetDouble` | It is a primitive of exactly that type. A `long` argument does not satisfy `TryGetInt32`. |
+| `TryGetEnum<TEnum>(out TEnum)` | It is an enum constant with an integral underlying value. The underlying value is converted to `TEnum`; the enum's identity is not checked. |
+| `TryGetType(out TypeRef)` | It is a `typeof(...)` constant. |
+| `TryGetArray(out EquatableArray<ConstantValue>)` | It is an array. |
+| `TryGetStringArray(out EquatableArray<string?>)` | It is an array whose elements are all strings or nulls. |
+
+A `null` string argument is not a string: check `IsNull` for it, since `TryGetString` returns `false`.
 
 ## Constructing models by hand
 

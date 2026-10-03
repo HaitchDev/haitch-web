@@ -1,6 +1,6 @@
 ---
 title: Testing generators
-description: GeneratorHarness, AssertCacheable and CachingHazardWalker from Haitch.Roslyn.Testing.
+description: GeneratorHarness, harness input, diagnostic and output assertions, AssertCacheable and CachingHazardWalker from Haitch.Roslyn.Testing.
 sidebar:
   order: 6
 ---
@@ -10,7 +10,7 @@ sidebar:
 ## Installation
 
 ```sh
-dotnet add package Haitch.Roslyn.Testing --version 0.3.0
+dotnet add package Haitch.Roslyn.Testing --version 0.4.0
 ```
 
 ## GeneratorHarness.Run
@@ -32,10 +32,109 @@ Optional parameters: `additionalReferences` (extra `MetadataReference`s) and `pa
 |---|---|
 | `Sources` | Generated text keyed by hint name. |
 | `Diagnostics` | Diagnostics reported by the generator itself, not compiler diagnostics. |
+| `InputDiagnostics` | Error diagnostics the input compilation reported before generation that remain after it. Empty unless `AllowInputErrors` let them through. |
 | `Compilation` | The compilation after generation. |
 | `InputCompilation` | The compilation before generation. |
 | `Driver` | The driver after the run, for rerunning against a changed compilation. |
 | `RunResult` | The driver's run result, including tracked steps. |
+
+## GeneratorHarnessInput
+
+`Run` and `AssertCacheable` also take a `GeneratorHarnessInput`, which carries everything the harness feeds the generator. The overloads that take a `string` list delegate to it, so 0.3 callers compile unchanged.
+
+```csharp
+var result = GeneratorHarness.Run(
+    new TextConstantsGenerator(),
+    new GeneratorHarnessInput
+    {
+        Sources = ["class Input { }"],
+        AdditionalTexts = [new("docs/greeting.txt", "Hello")],
+        GlobalOptions = new Dictionary<string, string>
+        {
+            ["build_property.RootNamespace"] = "App",
+        },
+        PerFileOptions = new Dictionary<string, IReadOnlyDictionary<string, string>>
+        {
+            ["docs/greeting.txt"] = new Dictionary<string, string>
+            {
+                ["build_metadata.AdditionalFiles.ConstantName"] = "Welcome",
+            },
+        },
+    });
+```
+
+| Property | Meaning |
+|---|---|
+| `Sources` | Required. The C# source texts of the input compilation. |
+| `AdditionalReferences` | Extra `MetadataReference`s. The test host's platform references are always included. |
+| `ParseOptions` | Defaults to the latest language version. |
+| `AdditionalTexts` | `HarnessAdditionalText(Path, Text)` records handed to the generator as additional files. |
+| `GlobalOptions` | Global analyzer-config options, such as `build_property.RootNamespace`. |
+| `PerFileOptions` | Analyzer-config options keyed by file path, such as `build_metadata.AdditionalFiles.ConstantName`. |
+| `AllowInputErrors` | Lets errors that exist before generation through; see [below](#input-errors). |
+
+Option keys are passed through verbatim, so write the full `build_property.` or `build_metadata.AdditionalFiles.` prefix. Lookups are case-insensitive, like the compiler's. A source tree's path in `PerFileOptions` is `Source{i}.cs` (zero-based, in `Sources` order); an additional text's path is its `HarnessAdditionalText.Path`.
+
+### Input errors
+
+By default `Run` throws `GeneratorTestException` when the input compilation has errors that remain after generation. Set `AllowInputErrors = true` to test how a generator behaves on broken input, such as a syntax error or a missing type.
+
+```csharp
+var result = GeneratorHarness.Run(
+    new MyGenerator(),
+    new GeneratorHarnessInput
+    {
+        Sources = ["[My] public partial class Foo { int x = ; }"],
+        AllowInputErrors = true,
+    });
+
+await Assert.That(result.InputDiagnostics).IsNotEmpty();
+```
+
+The errors the input already had are exposed on `InputDiagnostics` and no longer fail the run. An error that is new after generation still throws, wherever it is located, so a generator that breaks the user's code is still caught.
+
+## Diagnostic assertions
+
+These extension methods on `GeneratorHarnessResult` check the generator's own diagnostics, not compiler diagnostics. Each throws `GeneratorTestException` and lists the actual diagnostics when it fails.
+
+- **`AssertNoDiagnostics()`** requires that the generator reported nothing. It returns the result, so calls chain.
+- **`AssertDiagnostic(id, ...)`** requires exactly one diagnostic with that id that matches every filter you pass, and returns it. Two matches fail as well as none. The optional filters are `severity`, `line` and `column` (both 1-based), `file` and `messageContains` (an ordinal substring).
+
+```csharp
+result.AssertNoDiagnostics();
+
+Diagnostic diagnostic = result.AssertDiagnostic(
+    "SAMPLE001",
+    severity: DiagnosticSeverity.Error,
+    line: 3,
+    column: 14,
+    messageContains: "must be partial");
+```
+
+## Output assertions
+
+- **`AssertSource(hintName, expected)`** compares a generated source with an inline string.
+- **`AssertSourceFile(hintName, path)`** compares it with the content of a file, which keeps large outputs out of the test code.
+
+Both ignore the line-ending style (`\r\n` against `\n`) and nothing else: trailing whitespace counts. A mismatch reports the first line that differs. A missing hint name fails and lists the hint names that exist. Both return the result.
+
+```csharp
+result
+    .AssertNoDiagnostics()
+    .AssertSourceFile("TextConstants.g.cs", "Expected/TextConstants.Two.g.cs.txt");
+```
+
+A relative `path` resolves against the directory of the calling test file (the harness reads `[CallerFilePath]`), or pass an absolute path. If the build remaps source paths (`ContinuousIntegrationBuild`, `PathMap`), the caller path is not a real directory and a relative path throws a `GeneratorTestException` asking for an absolute one.
+
+### Accepting output
+
+When the expected file does not exist, or the environment variable `HAITCH_ACCEPT=1` is set, `AssertSourceFile` writes the actual output to the file and **still fails**. The failure is deliberate: the change shows up in version control to be reviewed, and rerunning without the variable passes.
+
+```sh
+HAITCH_ACCEPT=1 dotnet test
+```
+
+Name the expected files so the compiler does not pick them up, for example with a `.txt` suffix as in the sample above.
 
 ## AssertCacheable
 
@@ -53,7 +152,11 @@ var models = context.SyntaxProvider
 GeneratorHarness.AssertCacheable(new MyGenerator(), ["[My] public partial class Foo;"], "Models");
 ```
 
-Step names can be passed as `params string[]` or as an `IEnumerable<string>`, in which case the optional `additionalReferences` and `parseOptions` follow.
+Step names can be passed as `params string[]` or as an `IEnumerable<string>`, in which case the optional `additionalReferences` and `parseOptions` follow. To run against additional files or options, pass a `GeneratorHarnessInput` in place of the sources: `AssertCacheable(generator, input, steps, options)`, where `options` is an optional `CacheabilityOptions`.
+
+```csharp
+GeneratorHarness.AssertCacheable(new TextConstantsGenerator(), input, ["TextConstantsGenerator.Files"]);
+```
 
 `ForTypesWithAttribute` and `ReportDiagnostics` take a tracking name for exactly this purpose.
 
@@ -81,6 +184,7 @@ Caveats:
 - **Name model steps only.** Steps that combine with `CompilationProvider` or output syntax nodes are legitimately `Modified` by the trivia edit.
 - **The edit targets the first source**, so put the code your tracked steps read there.
 - **An unknown or never-run step name fails**; the message lists the steps that exist.
+- **Passing `null` positionally as the fourth argument is ambiguous** between the overloads; use named arguments.
 
 ## CachingHazardWalker
 
