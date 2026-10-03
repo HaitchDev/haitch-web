@@ -16,17 +16,26 @@ IncrementalValuesProvider<(TypeModel Type, SyntaxInfo Syntax, EquatableArray<Att
     context.SyntaxProvider.ForTypesWithAttribute("My.MyAttribute", "MyGenerator.Types");
 ```
 
-The second argument is the tracking name given to the step, which the [testing helpers](/libraries/roslyn/testing/) use to look it up.
+The second argument is the tracking name given to the step, which the [testing helpers](/libraries/roslyn/testing/) use to look it up. An optional third argument, `includeMembers` (default `false`), is covered [below](#including-members).
 
 Each item holds:
 
-- `Type`: the `TypeModel`, without members.
+- `Type`: the `TypeModel`, without members unless `includeMembers` is `true`.
 - `Syntax`: the `SyntaxInfo`, with the partial flags and a `LocationInfo?` for reporting diagnostics.
 - `Attributes`: every application of the attribute on the type.
 
 **One item per type.** A partial type marked on several declarations still yields a single item, and `Attributes` carries the applications from all parts. This is done without `Collect()`, so unrelated edits still leave the step cached.
 
 The provider does not report diagnostics for a bad match, such as a non-partial type. That is your decision; see [Diagnostics](/libraries/roslyn/diagnostics/).
+
+### Including members
+
+```csharp
+var types = context.SyntaxProvider.ForTypesWithAttribute(
+    "My.MyAttribute", "MyGenerator.Types", includeMembers: true);
+```
+
+With `includeMembers: true` the `TypeModel` has its `Fields`, `Properties` and `Methods` filled from the symbol, and every part of a partial type contributes. This ties the item's equality to every member edit, so any edit to a member of the type recomputes the downstream steps. Leave it off unless the generator reads members, for example to detect a conflict with a member it is about to generate. The [walkthrough](/libraries/roslyn/walkthrough/) does exactly that.
 
 ## Marker attributes
 

@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn
-    dotnet add package Haitch.Roslyn.Testing   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.2.0
+    dotnet add package Haitch.Roslyn.Testing --version 0.2.0   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="*" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.2.0" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -47,11 +47,11 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 | Namespace | Types | Page |
 |---|---|---|
 | `Haitch.Roslyn.Types` | `EquatableArray<T>` | [Models](/libraries/roslyn/models/) |
-| `Haitch.Roslyn.Models` | `TypeRef`, `AttributeModel`, `ConstantValue`, `TypeModel`, `ContainingTypeModel`, member models, `SyntaxInfo` | [Models](/libraries/roslyn/models/) |
+| `Haitch.Roslyn.Models` | `TypeRef`, `AttributeModel`, `WellKnownAttributes`, `ConstantValue`, `TypeModel`, `NewTypeModel`, `ContainingTypeModel`, member models, `SyntaxInfo` | [Models](/libraries/roslyn/models/) |
 | `Haitch.Roslyn.Generators` | `ForTypesWithAttribute`, `AddMarkerAttribute`, `AddEmbeddedAttributeDefinition`, `HintName` | [Pipeline helpers](/libraries/roslyn/pipeline/) |
 | `Haitch.Roslyn.Diagnostics` | `LocationInfo`, `DiagnosticInfo`, `Result<T>`, `Result.Combine`/`Collect`, `ReportDiagnostics`, `PartialTypeValidation` | [Diagnostics](/libraries/roslyn/diagnostics/) |
-| `Haitch.Roslyn.Writing` | `SourceWriter` and the typed scoped writer | [Source writing](/libraries/roslyn/writing/) |
-| `Haitch.Roslyn.Testing` | `GeneratorHarness`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
+| `Haitch.Roslyn.Writing` | `SourceWriter`, the typed scoped writer, attribute and new-type rendering, statement scopes | [Source writing](/libraries/roslyn/writing/), [Attributes, new types and statements](/libraries/roslyn/generating-code/) |
+| `Haitch.Roslyn.Testing` | `GeneratorHarness`, `CacheabilityOptions`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
 

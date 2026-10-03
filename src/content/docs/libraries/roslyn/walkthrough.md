@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-This generator gives every type marked `[Sample]` a `TypeName` constant and a `ToString` override, in a generated partial declaration. A marked type that is not partial reports a diagnostic instead. It is the sample the library's own tests run.
+This generator gives every type marked `[Sample]` a `TypeName` constant and a `ToString` override, in a generated partial declaration. A marked type that is not partial, or that already declares those members, reports a diagnostic instead. It is the sample the library's own tests run.
 
 ## The generator
 
@@ -18,6 +18,7 @@ internal sealed class SampleGenerator : IIncrementalGenerator
 
     public static readonly DiagnosticDescriptor NotPartial = Describe("SAMPLE001", "'{0}' must be partial");
     public static readonly DiagnosticDescriptor StaticType = Describe("SAMPLE002", "'{0}' must not be static");
+    public static readonly DiagnosticDescriptor MemberConflict = Describe("SAMPLE005", "'{0}' already declares '{1}'");
 
     private static readonly PartialTypeDiagnostics Diagnostics = new(
         NotPartial,
@@ -35,7 +36,8 @@ internal sealed class SampleGenerator : IIncrementalGenerator
             ctx.AddMarkerAttribute("SampleAttribute.g.cs", "Sample", "SampleAttribute", AttributeTargets.Class);
         });
 
-        var types = context.SyntaxProvider.ForTypesWithAttribute(MarkerMetadataName, ModelStepName);
+        var types = context.SyntaxProvider.ForTypesWithAttribute(MarkerMetadataName, ModelStepName,
+            includeMembers: true);
 
         var valid = types
             .Select(static (item, _) => ValidateSample(item.Type, item.Syntax))
@@ -61,10 +63,28 @@ private static Result<TypeModel> ValidateSample(TypeModel type, SyntaxInfo synta
 {
     var result = PartialTypeValidation.Validate(type, syntax, Diagnostics);
 
+    if (!result.IsSuccess)
+    {
+        return result;
+    }
+
     // A static class cannot hold the instance ToString override.
-    return result.IsSuccess && type.IsStatic
-        ? Result<TypeModel>.Failure(new DiagnosticInfo(StaticType, syntax.Location, type.Name))
-        : result;
+    if (type.IsStatic)
+    {
+        return Result<TypeModel>.Failure(new DiagnosticInfo(StaticType, syntax.Location, type.Name));
+    }
+
+    // Members are present because the pipeline asked for them with includeMembers: true.
+    foreach (var method in type.Methods)
+    {
+        if (method.Name == "ToString" && method.Parameters.IsEmpty)
+        {
+            return Result<TypeModel>.Failure(
+                new DiagnosticInfo(MemberConflict, syntax.Location, type.Name, "ToString"));
+        }
+    }
+
+    return result;
 }
 ```
 
@@ -146,9 +166,9 @@ private static void WriteType(TypeScope scope, TypeModel type)
 
 For a `[Sample] public partial class Widget` in namespace `App`, the generated file declares a `public const string TypeName = "Widget";` and a `ToString` override that returns it, inside `namespace App` and `partial class Widget`.
 
-## Known gap
+## Member conflicts
 
-The sample does not guard member conflicts. A user-declared `ToString` or `TypeName` makes the output fail to compile, because `ForTypesWithAttribute` yields models without members, so there is nothing to check against. If your generator needs that check, build the model with `TypeModel.From(symbol, includeMembers: true)` in your own transform, accepting that it then changes on every member edit.
+A user-declared `ToString` or `TypeName` would make the generated output fail to compile, so the sample reports `SAMPLE005` for them. That check needs the type's members, which is why the pipeline passes `includeMembers: true`. The cost is that the item then changes on every member edit, so downstream steps recompute; leave it off when the generator never reads members. The code above shows only the `ToString` check; the full sample also checks `TypeName` as a field, property or method. A nested type or event of that name is still unguarded, because `TypeModel` does not model them.
 
 ## Testing it
 

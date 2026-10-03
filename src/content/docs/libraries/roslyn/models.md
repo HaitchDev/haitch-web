@@ -24,7 +24,17 @@ ReadOnlySpan<string> span = names.AsSpan();
 var equal = names == new[] { "a", "b" }.ToEquatableArray(); // true, element-wise
 ```
 
-`ToEquatableArray()` is available on `T[]`, `ImmutableArray<T>` and `IEnumerable<T>`. `default(EquatableArray<T>)` is a valid empty array, equal to any other empty one.
+`ToEquatableArray()` is available on `T[]`, `ImmutableArray<T>`, `IEnumerable<T>` and `EquatableArray<T>` itself. The last is the identity: it returns the same array instead of boxing and copying through the `IEnumerable<T>` overload. `default(EquatableArray<T>)` is a valid empty array, equal to any other empty one.
+
+`EquatableArray<T>` implements `IReadOnlyList<T>`, so it can be passed to any API that takes one. It is also a collection-expression target (it carries a `[CollectionBuilder]` attribute), so a literal list needs no helper call:
+
+```csharp
+EquatableArray<string> names = ["a", "b"];
+EquatableArray<string> none = [];                  // default
+EquatableArray<string> more = [.. names, "c"];
+```
+
+An empty collection expression yields `default`.
 
 ## The model types
 
@@ -33,7 +43,9 @@ var equal = names == new[] { "a", "b" }.ToEquatableArray(); // true, element-wis
 | `TypeRef` | A type reference: fully qualified name, nullable annotation, special type, type kind, value-type flag. `TypeRef.From(ITypeSymbol)`. |
 | `AttributeModel` | An attribute's type, constructor arguments and named arguments. `AttributeModel.From(AttributeData)` returns `null` for an unresolved attribute. |
 | `ConstantValue` | A constant: null, primitive, string, enum, type or array. Built with `ForNull`, `ForPrimitive`, `ForString`, `ForEnum`, `ForType`, `ForArray`. |
+| `WellKnownAttributes` | Ready-made `AttributeModel`s: `GeneratedCode(tool, version)` and `EditorBrowsableNever`. See [Attributes, new types and statements](/libraries/roslyn/generating-code/). |
 | `TypeModel` | A class, record, struct, record struct or interface declaration. |
+| `NewTypeModel` | A brand-new, non-partial type to emit, as opposed to an existing one to extend. See [Attributes, new types and statements](/libraries/roslyn/generating-code/). |
 | `ContainingTypeModel` | One enclosing type of a nested type. |
 | `MethodModel`, `PropertyModel`, `FieldModel`, `ParameterModel`, `TypeParameterModel` | Members and their parts. Each has a `From(...)` factory over the matching symbol. |
 | `SyntaxInfo` | Syntax facts: `IsPartial`, `AreContainingTypesPartial` and a `LocationInfo?`. `SyntaxInfo.From(TypeDeclarationSyntax)`. |

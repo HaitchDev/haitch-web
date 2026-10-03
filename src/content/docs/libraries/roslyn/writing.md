@@ -67,8 +67,11 @@ TypeScope
 
 BodyScope
   ├─ Line(string)
-  └─ Block(string header) ─▶ BodyScope
+  ├─ Block(string header) ─▶ BodyScope
+  └─ statement scopes (If, ForEach, Try, Switch, ...)
 ```
+
+`FileScope`, `NamespaceScope` and `TypeScope` also write attributes and brand-new types. Statement scopes, attributes and new types are covered in [Attributes, new types and statements](/libraries/roslyn/generating-code/).
 
 ```csharp
 var writer = new SourceWriter();
@@ -136,3 +139,5 @@ These are known and accepted, because a `ref struct` cannot track them without a
 - **Copying a scope and disposing both copies closes the block twice.**
 - **Write all `Using` calls before opening a namespace.** A `Using` after a namespace is invalid C# (CS1529).
 - **Dispose each accessor scope before opening the next.** Otherwise the next accessor is written inside the previous body.
+
+The statement scopes add more caller errors of the same kind; they are listed in [Attributes, new types and statements](/libraries/roslyn/generating-code/#errors-the-writer-does-not-catch).

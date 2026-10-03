@@ -10,7 +10,7 @@ sidebar:
 ## Installation
 
 ```sh
-dotnet add package Haitch.Roslyn.Testing
+dotnet add package Haitch.Roslyn.Testing --version 0.2.0
 ```
 
 ## GeneratorHarness.Run
@@ -56,6 +56,25 @@ GeneratorHarness.AssertCacheable(new MyGenerator(), ["[My] public partial class 
 Step names can be passed as `params string[]` or as an `IEnumerable<string>`, in which case the optional `additionalReferences` and `parseOptions` follow.
 
 `ForTypesWithAttribute` and `ReportDiagnostics` take a tracking name for exactly this purpose.
+
+### CacheabilityOptions
+
+An overload takes a `CacheabilityOptions` after the step names, followed by the optional `additionalReferences` and `parseOptions`. Both options are off by default.
+
+```csharp
+GeneratorHarness.AssertCacheable(
+    new MyGenerator(),
+    ["[My] public partial class Foo;", "public class Other;"],
+    ["Models"],
+    new CacheabilityOptions
+    {
+        UnrelatedEditSourceIndex = 1,
+        RequireRecomputationAfterTriviaEdit = true,
+    });
+```
+
+- **`UnrelatedEditSourceIndex`** adds a third run. `namespace HarnessUnrelatedEdit { }` is appended to the source at that index, so the compilation changes but no tracked step should read what changed. Every output of the named steps must still be `Cached` or `Unchanged`; a model that depends on the whole compilation fails here. The index must be at least 1, because source 0 takes the trivia edit, and less than the number of sources, so it needs at least two sources. `null` skips the run.
+- **`RequireRecomputationAfterTriviaEdit`** guards against a check that passes only because nothing re-ran. After the trivia edit, every output of each named step must be `Cached` or `Unchanged`, and at least one must be `Unchanged`, meaning the step re-ran for the edited source and produced an equal value. Name the per-item model step: an aggregate such as `Collect` over unchanged items reports `Cached` and fails this check.
 
 Caveats:
 
