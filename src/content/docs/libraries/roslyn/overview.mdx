@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn --version 0.2.0
-    dotnet add package Haitch.Roslyn.Testing --version 0.2.0   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.3.0
+    dotnet add package Haitch.Roslyn.Testing --version 0.3.0   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="0.2.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.3.0" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -54,6 +54,27 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 | `Haitch.Roslyn.Testing` | `GeneratorHarness`, `CacheabilityOptions`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
+
+## What's new in 0.3.0
+
+The package is built against the C# 15 release candidate; the Roslyn 4.12 floor is unchanged. Behaviour changes from 0.2.0 come first.
+
+**Breaking and behaviour changes**
+
+- **Scoped-writer misuse now throws.** The caller errors that 0.2.0 left to the compiler (writing to a parent while a child is open, chaining with a nested block open, a switch section that falls through, a bare `try`, a dangling `Attribute()`) are detected. They always throw, not only in debug builds. See [Writer guards](/libraries/roslyn/generating-code/#writer-guards).
+- **`MethodModel.Name` is the unqualified name for explicit interface implementations.** It was `System.IDisposable.Dispose`; it is now `Dispose`, with the interface in `ExplicitInterface`. `TypeModel.From(includeMembers: true)` now includes explicit interface methods and properties, so `Name` is no longer unique within `Methods` or `Properties`.
+- **`WriteNewTypeDeclaration` always opens a body.** A positional record is written as `record Person(string Name) { }`; use the new `WriteBodylessNewTypeDeclaration` for the `;` form.
+- **`TypeModel.From` throws `ArgumentException` for an extension block.**
+- **`TypeDeclarationKind` has a new `Union` member.** A `switch` over it needs a new arm, and a union is no longer reported as a struct.
+- **Ref properties with `set` or `init` accessors are rejected** by `Property`, and `AutoProperty` rejects any ref-returning property.
+
+**New**
+
+- C# 15 unions and `closed` types in `TypeModel` and `NewTypeModel`, and labeled `break`/`continue` in the scoped writer. See [C# 15 support](/libraries/roslyn/generating-code/#c-15-support).
+- `TypeParameterModel.Variance` and `NewTypeModel.PrimaryConstructorParameters`.
+- An optional `CancellationToken` on `TypeModel.From` and `MethodModel.From`, passed through by `ForTypesWithAttribute`.
+- `FieldModel.IsVolatile` and `PropertyModel.ReturnRefKind`.
+- `HintName.For(..., disambiguateCase: true)`. See [HintName](/libraries/roslyn/pipeline/#hintname).
 
 ## Why source-only
 

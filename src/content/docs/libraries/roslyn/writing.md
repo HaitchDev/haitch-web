@@ -33,7 +33,7 @@ SourceText sourceText = writer.ToSourceText();   // UTF-8, SHA-256
 | `WriteLine(string text = "")` | Writes the text as one or more lines at the current indent. Embedded `\n` splits lines; blank lines are not indented. Returns the writer. |
 | `Write(string text)` | Writes without ending the line, so one line can be assembled in parts. |
 | `Block(open = "{", close = "}")` | Writes `open`, indents, and returns a scope; disposing it outdents and writes `close`. |
-| `ToString()` / `ToSourceText()` | The accumulated text. |
+| `ToString()` / `ToSourceText()` | The accumulated text. Throws `InvalidOperationException` if a scope recorded an error when it closed; see [Guards](#guards). |
 
 ## Declaration helpers
 
@@ -111,9 +111,9 @@ A blank line is inserted automatically between sibling members, types, usings an
 
 ### Fields and properties
 
-- `Field(field, initializer)` writes one declaration line. A `const` field takes its value from `FieldModel.ConstantValue` and rejects an initializer. Instance fields on an interface throw.
-- `AutoProperty(property)` writes `public int X { get; private set; }`-style lines from any property shape; accessor bodies and expression bodies become auto accessors. It throws `ArgumentException` for an abstract property, an explicit interface implementation, a property with no getter, or an instance property in an interface. Ref returns, `volatile` and ref fields are not modelled and not written.
-- `Property(property)` writes the header and opens the accessor list. Call `Get()`, `Set()` or `Init()` for each accessor body; each can be opened once, and the model must have that accessor.
+- `Field(field, initializer)` writes one declaration line, including `volatile` when `FieldModel.IsVolatile` is set. A `const` field takes its value from `FieldModel.ConstantValue` and rejects an initializer. Instance fields on an interface throw.
+- `AutoProperty(property)` writes `public int X { get; private set; }`-style lines from any property shape; accessor bodies and expression bodies become auto accessors. It throws `ArgumentException` for an abstract property, an explicit interface implementation, a property with no getter, or an instance property in an interface. It also throws for a property that returns by ref, because a ref property cannot be an auto-property.
+- `Property(property)` writes the header and opens the accessor list. Call `Get()`, `Set()` or `Init()` for each accessor body; each can be opened once, the model must have that accessor, and the previous accessor scope must be disposed first (otherwise `InvalidOperationException`).
 
 ```csharp
 using var property = type.Property(nameProperty);
@@ -129,15 +129,21 @@ using (var set = property.Set())
 }
 ```
 
-Abstract properties, explicit interface implementations (names containing `.`) and properties with no accessors throw from `Property`.
+Abstract properties, explicit interface implementations and properties with no accessors throw from `Property`, as does a ref-returning property that has a `set` or `init` accessor. `Property` writes `ref` and `ref readonly` returns from `PropertyModel.ReturnRefKind`.
+
+### Guards
+
+Since 0.3.0 the writer detects misuse and reports it instead of emitting wrong code. This is always on, not debug-only.
+
+- **Throws at the call.** Writing to a scope while a child opened from it is still open, writing through a stale copy, chaining or opening a switch section out of order, and using a scope after its block closed all throw `InvalidOperationException` with a message that names the scope. Nothing is written by the failed call.
+- **`Dispose` never throws.** A throw from `Dispose` would mask an exception already in flight. A problem found while closing, such as a `try` with neither `catch` nor `finally`, a switch whose last section can fall through, or an `Attribute()` with nothing after it, is recorded on the writer. `ToString()` and `ToSourceText()` then throw it. After any scope exception, treat the output as unusable, because the unwinding disposals can record further errors.
+- **Disposing a copy is safe.** A `using` local forces defensive copies of a `ref struct`. Disposing a copy after the original, or twice, is a no-op, even when another block has since opened at the same depth. Using a copy after its block closed throws.
+- **Disposing closes inner blocks.** Disposing a scope closes any blocks still open inside it, innermost first.
+
+The statement-level guards (switch fall-through, try/catch, labels) are described in [Attributes, new types and statements](/libraries/roslyn/generating-code/#writer-guards).
 
 ### Limitations
 
-These are known and accepted, because a `ref struct` cannot track them without allocation or a runtime check.
-
-- **A parent scope stays usable while a child is open.** Text written to the parent lands inside the child's block.
-- **Copying a scope and disposing both copies closes the block twice.**
 - **Write all `Using` calls before opening a namespace.** A `Using` after a namespace is invalid C# (CS1529).
-- **Dispose each accessor scope before opening the next.** Otherwise the next accessor is written inside the previous body.
 
-The statement scopes add more caller errors of the same kind; they are listed in [Attributes, new types and statements](/libraries/roslyn/generating-code/#errors-the-writer-does-not-catch).
+The statement scopes have a few remaining caller errors that the writer cannot catch; they are listed in [Attributes, new types and statements](/libraries/roslyn/generating-code/#errors-the-writer-does-not-catch).

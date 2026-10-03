@@ -10,7 +10,7 @@ sidebar:
 ## Installation
 
 ```sh
-dotnet add package Haitch.Roslyn.Testing --version 0.2.0
+dotnet add package Haitch.Roslyn.Testing --version 0.3.0
 ```
 
 ## GeneratorHarness.Run

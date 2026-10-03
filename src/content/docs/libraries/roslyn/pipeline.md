@@ -16,7 +16,7 @@ IncrementalValuesProvider<(TypeModel Type, SyntaxInfo Syntax, EquatableArray<Att
     context.SyntaxProvider.ForTypesWithAttribute("My.MyAttribute", "MyGenerator.Types");
 ```
 
-The second argument is the tracking name given to the step, which the [testing helpers](/libraries/roslyn/testing/) use to look it up. An optional third argument, `includeMembers` (default `false`), is covered [below](#including-members).
+The second argument is the tracking name given to the step, which the [testing helpers](/libraries/roslyn/testing/) use to look it up. An optional third argument, `includeMembers` (default `false`), is covered [below](#including-members). The provider passes Roslyn's cancellation token to `TypeModel.From`, so a cancelled build stops between members.
 
 Each item holds:
 
@@ -91,4 +91,10 @@ The result is ``{Namespace.}{Outer+}*{Name}{`N if generic}.{suffix}.g.cs``. Nest
 
 The suffix must be non-empty, must not end in `.cs`, must not start or end with `.` or contain `..`, and may contain only ASCII letters, digits, `.`, `_` and `-`; otherwise `ArgumentException`.
 
-Roslyn compares hint names case-insensitively, so two types whose names differ only in case in one namespace still collide. `HintName` does not disambiguate that.
+Roslyn compares hint names case-insensitively, so two types whose names differ only in case in one namespace (`Foo` and `foo`) collide by default. Pass `disambiguateCase: true` to insert an 8-character FNV-1a hash before the suffix:
+
+```csharp
+string hint = HintName.For(type, "Sample", disambiguateCase: true);   // e.g. "App.Foo.a1b2c3d4.Sample.g.cs"
+```
+
+The hash covers the case-sensitive stem (namespace, containing types and arity) and not the suffix. It is opt-in so existing generators keep their file names; turning it on renames every output file.
