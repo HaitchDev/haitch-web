@@ -59,7 +59,7 @@ TypeModel model = TypeModel.From(typeSymbol);
 TypeModel withMembers = TypeModel.From(typeSymbol, includeMembers: true);
 ```
 
-`TypeModel` records the namespace (`null` for the global namespace), name, `Kind` (`TypeDeclarationKind`), accessibility, modifier flags (`IsStatic`, `IsAbstract`, `IsSealed`, `IsReadOnly`, `IsRefLikeType`, `IsFileLocal`), type parameters, containing types (outermost first), attributes, base types (see [below](#base-types-interfaces-and-events)), and the `Fields`, `Properties`, `Methods` and `Events` arrays.
+`TypeModel` records the namespace (`null` for the global namespace), name, `Kind` (`TypeDeclarationKind`), accessibility, modifier flags (`IsStatic`, `IsAbstract`, `IsSealed`, `IsReadOnly`, `IsRefLikeType`, `IsFileLocal`), type parameters, containing types (outermost first), attributes, base types (see [below](#base-types-interfaces-and-events)), and the `Fields`, `Properties`, `Methods` and `Events` arrays and `MemberNames`.
 
 **Members are captured only when `includeMembers: true`.** A model with members changes whenever any member is edited, so the member arrays are empty by default. Ask for members only when the generator really reads them.
 
@@ -69,6 +69,14 @@ Both `TypeModel.From` and `MethodModel.From` take an optional trailing `Cancella
 
 ```csharp
 TypeModel model = TypeModel.From(typeSymbol, includeMembers: true, cancellationToken);
+```
+
+### Member names
+
+`TypeModel.MemberNames` is an `EquatableArray<string>` holding the distinct, ordinal-sorted name of every member the type declares, and it is empty unless `includeMembers` is `true`. Unlike the typed arrays it lists nested types, indexers, constructors, operators and compiler-made members, because a generated member can clash with any of them, such as a record's synthesized `ToString`. Accessors appear as `get_X` and `add_X`, an indexer appears as `this[]`, and an explicit interface implementation appears under its qualified name, such as `System.IDisposable.Dispose`.
+
+```csharp
+bool taken = type.MemberNames.Contains("ToString");
 ```
 
 ### Base types, interfaces and events
@@ -88,7 +96,7 @@ if (!type.AllInterfaces.Any(i => i.FullyQualifiedName == "global::System.IDispos
 
 **Caching.** `AllInterfaces` feeds on the base types' own interface lists. Adding or removing an interface on a base type changes it, and so changes the model and invalidates caches built on it. That is correct (the answer to "does this type implement X" changed), but it means a model with `AllInterfaces` is not cached against edits to its base types.
 
-`TypeModel.Events` holds `EventModel`s when `includeMembers` is `true`. An `EventModel` records `Name`, `Type`, `Accessibility`, `IsStatic` and `IsFieldLike`, plus `IsAbstract`, `IsVirtual`, `IsOverride`, `IsSealed`, `ExplicitInterface`, `ExplicitInterfaceMemberName` and `Attributes`. `IsFieldLike` is true for `event EventHandler E;` and false when the accessors are written out. For an event from metadata it is always false, because the two forms cannot be told apart there. `Name` is not unique when explicit implementations are present, so match on `ExplicitInterface` as well.
+`TypeModel.Events` holds `EventModel`s when `includeMembers` is `true`. An `EventModel` records `Name`, `Type`, `Accessibility`, `IsStatic` and `IsFieldLike`, plus `IsAbstract`, `IsVirtual`, `IsOverride`, `IsSealed`, `ExplicitInterface`, `ExplicitInterfaceMemberName` and `Attributes`. `IsFieldLike` is true for `event EventHandler E;` and false when the accessors are written out. `IsPartial` is true for a C# 14 partial event, which yields one `EventModel` built from the definition part; `IsFieldLike` is always false for it. For an event from metadata it is always false, because the two forms cannot be told apart there. `Name` is not unique when explicit implementations are present, so match on `ExplicitInterface` as well.
 
 ### Unions and closed types
 

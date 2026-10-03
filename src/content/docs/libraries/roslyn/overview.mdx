@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn --version 0.5.0
-    dotnet add package Haitch.Roslyn.Testing --version 0.5.0   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.6.0
+    dotnet add package Haitch.Roslyn.Testing --version 0.6.0   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="0.5.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.6.0" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -55,7 +55,20 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
 
-## What's new in 0.5.0
+## What's new in 0.6.0
+
+The Roslyn 4.12 floor is unchanged. The release lets member discovery see the sibling members of the containing type, and models C# 14 partial events. One change can break a caller: `includeContainingTypeMembers` sits before `predicate` on the three member providers, so a call that passed the predicate positionally must name it, as in `predicate: ...`.
+
+**Pipeline**
+
+- `ForFieldsWithAttribute`, `ForPropertiesWithAttribute` and `ForMethodsWithAttribute` take `includeContainingTypeMembers` (default `false`). When `true`, `ContainingType` carries fields, properties, methods, events and member names, so a generator can check for clashes without a second step. See [Member discovery](/libraries/roslyn/pipeline/#member-discovery).
+
+**Models**
+
+- `TypeModel.MemberNames` lists the distinct, ordinal-sorted name of every member, including nested types, accessors, indexers, constructors, operators and compiler-made members. It is filled only with `includeMembers`. See [Member names](/libraries/roslyn/models/#member-names).
+- A C# 14 partial event yields one `EventModel` with `IsPartial` set, and `IsFieldLike` is always `false` for it. See [Base types, interfaces and events](/libraries/roslyn/models/#base-types-interfaces-and-events).
+
+## What was new in 0.5.0
 
 The Roslyn 4.12 floor is unchanged. The release finishes the testing harness and adds a raw-line writer for type bodies. Three changes can break a test: the harness overloads that took `additionalReferences` and `parseOptions` are gone, `AssertCacheable` now fails a step that holds the options provider by reference, and `AdditionalTexts` now holds `AdditionalText`, so write `new HarnessAdditionalText(...)` rather than target-typed `new(...)`. `HarnessAdditionalText` is no longer a record, so it has no `with`, value equality or deconstruction.
 

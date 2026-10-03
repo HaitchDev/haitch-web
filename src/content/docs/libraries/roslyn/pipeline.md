@@ -50,7 +50,7 @@ var types = context.SyntaxProvider.ForTypesWithAttribute(
 
 ## Member discovery
 
-Three more providers find attributed members instead of types. Each takes the attribute's fully qualified metadata name, a tracking name and the optional predicate, and each yields one item per member.
+Three more providers find attributed members instead of types. Each takes the attribute's fully qualified metadata name, a tracking name, an optional `includeContainingTypeMembers` flag and the optional predicate, and each yields one item per member.
 
 | Provider | Matches | Item |
 |---|---|---|
@@ -60,9 +60,16 @@ Three more providers find attributed members instead of types. Each takes the at
 
 ```csharp
 var fields = context.SyntaxProvider.ForFieldsWithAttribute("Notify.NotifyAttribute", "NotifyGenerator.Fields");
+
+var withSiblings = context.SyntaxProvider.ForFieldsWithAttribute(
+    "Notify.NotifyAttribute",
+    "NotifyGenerator.Fields",
+    includeContainingTypeMembers: true);
 ```
 
-- **`ContainingType`** is a `TypeModel` captured without members, so the item changes with the member's own shape and not with its siblings.
+`includeContainingTypeMembers` comes before `predicate`, so pass a predicate by name when you use either.
+
+- **`ContainingType`** is a `TypeModel` captured without members by default, so the item changes with the member's own shape and not with its siblings. With `includeContainingTypeMembers: true` it carries `Fields`, `Properties`, `Methods`, `Events` and `MemberNames`, as `includeMembers` does for `ForTypesWithAttribute`. That ties the step's equality to every member signature edit of the containing type, so turn it on only when the generator reads sibling members, such as to check that a generated name is free.
 - **`Syntax`** describes the member declaration, not the containing type: `IsPartial` is the member's, `AreContainingTypesPartial` covers the whole containing chain, and `Location` is the member's identifier.
 - **Fields** are reported per declarator, so `[Mark] int a, b;` yields two items.
 - **Partial methods and properties** yield one item, built from the definition part. When both parts carry the attribute, the implementation part is dropped. `Syntax` describes the declaration that carries the attribute.
