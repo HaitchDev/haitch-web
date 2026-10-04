@@ -115,6 +115,7 @@ private static readonly MethodModel ToStringMethod = new(
     IsExtern: false,
     IsExtensionMethod: false,
     IsPartialDefinition: false,
+    IsPartial: false,
     IsReadOnly: false,
     ExplicitInterface: null,
     ExplicitInterfaceMemberName: null,

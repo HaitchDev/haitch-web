@@ -135,6 +135,10 @@ scope.Line("#pragma warning restore CS0067");
 
 `Method` writes the signature and opens a braced body. Abstract and extern methods (including interface members) have no body and throw; use `WriteMethodSignature` for them, which writes `abstract override` for an abstract override.
 
+`Method` and `WriteMethodSignature` accept only a `MethodModel` whose `MethodKind` is `Ordinary` or `ExplicitInterfaceImplementation`. Constructors, destructors, operators, conversions and accessors throw `ArgumentException`; write those by hand.
+
+The writer emits `partial` when `MethodModel.IsPartial` is `true`. That covers both parts, so the implementation part of a partial method you write compiles next to its definition.
+
 ### Fields and properties
 
 - `Field(field, initializer)` writes one declaration line, including `volatile` when `FieldModel.IsVolatile` is set. A `const` field takes its value from `FieldModel.ConstantValue` and rejects an initializer. Instance fields on an interface throw.

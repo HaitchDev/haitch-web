@@ -24,8 +24,8 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 <Tabs>
   <TabItem label=".NET CLI">
     ```sh
-    dotnet add package Haitch.Roslyn --version 0.6.0
-    dotnet add package Haitch.Roslyn.Testing --version 0.6.0   # in your test project
+    dotnet add package Haitch.Roslyn --version 0.6.1
+    dotnet add package Haitch.Roslyn.Testing --version 0.6.1   # in your test project
     ```
   </TabItem>
   <TabItem label="Package Reference">
@@ -36,7 +36,7 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
-      <PackageReference Include="Haitch.Roslyn" Version="0.6.0" PrivateAssets="all" />
+      <PackageReference Include="Haitch.Roslyn" Version="0.6.1" PrivateAssets="all" />
     </ItemGroup>
     ```
   </TabItem>
@@ -54,6 +54,14 @@ The package ships its source as `contentFiles`, which compile in `netstandard2.0
 | `Haitch.Roslyn.Testing` | `GeneratorHarness`, `GeneratorHarnessInput`, `GeneratorHarnessResult` and its assertions, `CacheabilityOptions`, `CachingHazardWalker` | [Testing](/libraries/roslyn/testing/) |
 
 For a complete generator that uses all of these, see the [Walkthrough](/libraries/roslyn/walkthrough/).
+
+## What's new in 0.6.1
+
+A bug-fix release. One change can break a caller: `MethodModel` has a new positional `IsPartial` parameter after `IsPartialDefinition`, so code that constructs it positionally must add it.
+
+- The writer throws `ArgumentException` for a method that is not an ordinary method or an explicit interface implementation, instead of writing output that does not compile. See [Methods](/libraries/roslyn/writing/#methods).
+- `MethodModel.IsPartial` is `true` for both parts of a partial method, and the writer emits `partial` from it, so a written implementation part compiles next to its definition. See [Methods](/libraries/roslyn/writing/#methods).
+- Diagnostics reported through the `ReportDiagnostics` pipeline extension are bound to the compilation's syntax tree, so `#pragma warning disable` suppresses them. See [ReportDiagnostics](/libraries/roslyn/diagnostics/#reportdiagnostics).
 
 ## What's new in 0.6.0
 

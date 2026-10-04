@@ -109,6 +109,7 @@ A type is a union (`Kind == TypeDeclarationKind.Union`) when a declaring syntax 
 - **`TypeParameterModel.Variance`** is `VarianceKind.In`, `Out` or `None`.
 - **`FieldModel.IsVolatile`** is true for a `volatile` field.
 - **`PropertyModel.ReturnRefKind`** is `None`, `Ref` or `RefReadOnly`, the same enum `MethodModel` uses.
+- **`MethodModel.IsPartial`** is `true` for both the definition and the implementation part of a partial method; `IsPartialDefinition` is `true` only for the part without a body. The writer uses it to emit `partial`. It is a positional parameter, so a `MethodModel` built by hand must pass it.
 - **Explicit interface implementations** are included in `Methods` and `Properties` when `includeMembers` is `true`. `Name` is the unqualified member name, and `ExplicitInterface` (a `TypeRef?`) and `ExplicitInterfaceMemberName` identify the interface member; both are `null` for an ordinary member. Because of that, `Name` is not unique: it can repeat across overloads, and an explicit implementation can share a name with a member of the type. Match on `ExplicitInterface` as well as `Name`. This also changes `MethodModel.From`: it used to return the qualified Roslyn name such as `System.IDisposable.Dispose`.
 
 Two flags are worth knowing when you render a partial declaration: interfaces always report `IsAbstract` and structs always report `IsSealed`, even though neither keyword is ever written. The [typed writer](/libraries/roslyn/writing/) already accounts for this.

@@ -11,6 +11,8 @@ A `DiagnosticDescriptor` has no value equality and a `Location` pins a syntax tr
 
 `LocationInfo(string FilePath, TextSpan Span, LinePositionSpan LineSpan)` is a value-equal location. `LocationInfo.From(location)` returns `null` for locations that are not in a source or external file, and `ToLocation()` converts back.
 
+`ToLocation(Compilation)` and `DiagnosticInfo.ToDiagnostic(Compilation)` bind the location to one of the compilation's syntax trees, so the diagnostic honours `#pragma warning disable`. If no single tree matches the file path, or the span is out of range for it, they fall back to the external-file location that `ToLocation()` returns. Use the parameterless versions only for locations outside the compilation, such as additional files.
+
 `DiagnosticInfo` is a value-equal diagnostic: a descriptor, an optional `LocationInfo`, and message arguments.
 
 ```csharp
@@ -20,6 +22,7 @@ var info = new DiagnosticInfo(descriptor, syntax.Location, type.Name);
 var info2 = DiagnosticInfo.Create(descriptor, location, type.Name);
 
 Diagnostic diagnostic = info.ToDiagnostic();
+Diagnostic bound = info.ToDiagnostic(compilation); // suppressible by #pragma
 ```
 
 Keep `DiagnosticDescriptor` instances in `static readonly` fields, so every run passes the same instance.
@@ -85,11 +88,16 @@ context.RegisterSourceOutput(valid, static (spc, type) => /* generate */);
 
 The tracking name is applied to the result step, and `{trackingName}.Diagnostics` to the diagnostics half. Splitting this way lets the engine cache the value step per item, independent of unrelated failures.
 
+Only the diagnostics branch is combined with `CompilationProvider`, so the value and source outputs stay cached. The diagnostics are bound to the compilation's syntax tree, which means `#pragma warning disable` suppresses them.
+
 There is also an overload on `SourceProductionContext` for reporting an `EquatableArray<DiagnosticInfo>` directly:
 
 ```csharp
 spc.ReportDiagnostics(diagnostics);
+spc.ReportDiagnostics(diagnostics, compilation);
 ```
+
+Pass the `Compilation` when the locations are in the compilation's source, so `#pragma warning disable` can suppress them. Use the overload without it for locations outside the compilation, such as additional files.
 
 ## PartialTypeValidation
 
